@@ -1,19 +1,21 @@
 #include<stdio.h>
+#include<arpa/inet.h>
+#include<unistd.h>
 #include<stdlib.h>
 #include<string.h>
 #include<sys/socket.h>
 #include<error.h>
 
 
-#define IP_ADDR 127.0.0.1
+//#define IP_ADDR 127.0.0.1
 #define PORT 8080
 
 int main(void)
 {
-	int sock_fd;
-	struct sockaddr *serv_addr;
-	struct sockaddr_in cli;
-
+	int sock_fd,addr_len,connfd;
+	struct sockaddr_in serv_addr;
+	addr_len = sizeof(serv_addr);
+	
 	//socket endpoint created
 	sock_fd = socket(AF_INET,SOCK_STREAM,0);
 	
@@ -27,7 +29,7 @@ int main(void)
 	
 	//assign value to structure members
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(IP_ADDR);
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
 	serv_addr.sin_port = htons(PORT);
 
 	//bind the address to socket
@@ -48,10 +50,8 @@ int main(void)
 	else
 		printf("Server Listening....\n");
 	
-	len = sizeof(cli);
-	
 	//accept the client connection 
-	connfd = accept(sock_fd,(struct sockaddr*)&cli,&len);
+	connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
 	if(connfd < 0)
 	{	
 		perror("Error: ");
