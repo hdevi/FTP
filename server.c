@@ -7,11 +7,12 @@
 #include<error.h>
 
 
-//#define IP_ADDR 127.0.0.1
+#define IP_ADDR "192.168.1.22"
 #define PORT 8080
 
 int main(void)
 {
+	int i = 0;
 	int sock_fd,addr_len,connfd;
 	struct sockaddr_in serv_addr;
 	addr_len = sizeof(serv_addr);
@@ -29,8 +30,9 @@ int main(void)
 	
 	//assign value to structure members
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_addr.s_addr = inet_addr(IP_ADDR);
 	serv_addr.sin_port = htons(PORT);
+	printf("Server listening %s : %d\n",IP_ADDR,PORT);
 
 	//bind the address to socket
 	if(bind(sock_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr)) != 0)
@@ -40,7 +42,6 @@ int main(void)
 	}
 	else
 		printf("socket successfully Binded.....\n");
-	
 	//listen if client is ready to connect max 5 clients can connect
 	if(listen(sock_fd,5) != 0)
 	{
@@ -50,6 +51,7 @@ int main(void)
 	else
 		printf("Server Listening....\n");
 	
+	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
 	//accept the client connection 
 	connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
 	if(connfd < 0)
@@ -59,9 +61,17 @@ int main(void)
 	}
 	else
 		printf("Client Accepted.....\n");
+
+		printf("accepted\n");
+		i++;
+		printf("%d\n",i);
 	
 	//close socket connection
-	close(sock_fd);
+	close(connfd);
+	printf("Socket closed....\n");
+	
+	shutdown(sock_fd, SHUT_RDWR);
+	printf("closed server listening socket....\n");
 
 	return 0;
 }
