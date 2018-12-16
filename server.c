@@ -40,35 +40,41 @@ int main(void)
 		perror("Error: \n");
 		exit(0);	
 	}
-	else
-		printf("socket successfully Binded.....\n");
+	
+	printf("socket successfully Binded.....\n");
+
 	//listen if client is ready to connect max 5 clients can connect
 	if(listen(sock_fd,5) != 0)
 	{
 		perror("Error: \n");
 		exit(0);
 	}	
-	else
-		printf("Server Listening....\n");
 	
-	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
-	//accept the client connection 
-	connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
-	if(connfd < 0)
-	{	
-		perror("Error: ");
-		exit(0);
-	}
-	else
+	printf("Server Listening....\n");
+	
+	while(1)
+	{
+		
+		memset(&serv_addr, 0, sizeof(struct sockaddr_in));
+		//accept the client connection 
+		connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
+		if(connfd < 0)
+		{	
+			perror("Error: ");
+			exit(0);
+		}
 		printf("Client Accepted.....\n");
-
-		printf("accepted\n");
-		i++;
-		printf("%d\n",i);
+		int i = 0;
+		while(i < 10)
+		{
+			printf("%d\n",i);
+			i++;
+		}
 	
-	//close socket connection
-	close(connfd);
-	printf("Socket closed....\n");
+		//close socket connection
+		close(connfd);
+		printf("Socket closed....\n");
+	}
 	
 	shutdown(sock_fd, SHUT_RDWR);
 	printf("closed server listening socket....\n");
