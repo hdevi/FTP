@@ -4,6 +4,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<signal.h>
+#include<time.h>
 #include<fcntl.h>
 #include<sys/socket.h>
 #include<error.h>
@@ -13,7 +14,8 @@
 typedef struct client_info
 {
  int socket_port;
- int client_no;	 			
+ int client_no;
+ int data_port;		 			
 }client_t;
 
 typedef enum Commands{USER,PASS,CWD,RETR,QUIT,BYE}command_t;
@@ -24,8 +26,9 @@ typedef enum Commands{USER,PASS,CWD,RETR,QUIT,BYE}command_t;
 
 int sock_fd;
 char rec_buf[50];
-char buffer[16];
+char bytes[200];
 char ack[200];
+char str[200];
 
 void sigint_handler(int sig)
 {
@@ -39,35 +42,58 @@ void sigint_handler(int sig)
 
 void* command(void* arg)
 {
-	int ret;
+	int ret,r;
 	command_t input;
+	srand((unsigned)time(NULL));
+	r=rand();
+	printf("%d\n",r);
 	client_t new_client = *((client_t*)arg);
 	int new_socket = new_client.socket_port;
 	int client_no = new_client.client_no;
+	new_client.data_port = r;
 	memset(ack,0,sizeof(ack));
-	sprintf(ack,"220 Himan Server connected to client: %d\n",client_no);
+	sprintf(ack,"220 Running client: %d connected to the Server, Data Port assigned(%d)\nLogin Himan Server: ",client_no,new_client.data_port);
 	send(new_socket,ack,200,0);
 	do
 	{
 		memset(ack,0,sizeof(ack));
+		memset(rec_buf,0,sizeof(rec_buf));
 		recv(new_socket,rec_buf,50,0);
-		case(input)
+		int len = strlen(rec_buf);
+		memset(str,0,sizeof(str));
+		memcpy(str,rec_buf,len-2);
+		printf("%s %d %lu\n",str,len-2,strlen(str));
+		if(strcmp(str,"anonymous") == 0)
 		{
-			USER:
-				break;
-			PASS:
-				break;
-			CWD:
-				break;
-			RETR:
-				break;
-			QUIT:
-				break;
+			sprintf(ack,"331 USER logged in as Anonymous. Need Password(Password)\n");
+			send(new_socket,ack,200,0);
 		}
+		else if(strcmp(str,"Password") == 0)
+		{
+			sprintf(ack,"230 Anonymous successfully logged in\n");
+			send(new_socket,ack,200,0);
+		}
+		else if(strcmp(str,"CWD") == 0)
+		{
+			
+		}
+		else if(strcmp(str,"RETR") == 0)
+		{
+			
+		}
+		else if(strcmp(str,"QUIT") == 0)
+		{
+			
+		}
+		else
+		{
+			
+		}
+
 		sleep(1);
-	}while(strcmp(rec_buf,"BYE") == 0);
-	//strcpy(buffer,"Hey,Got you....");
-	send(new_socket,buffer,16,0);
+
+	}while(strcmp(str,"bye") != 0);
+
 	printf("Exiting socket\n");
 	close(new_socket);
 	pthread_exit(NULL);
