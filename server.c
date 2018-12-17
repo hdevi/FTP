@@ -10,12 +10,22 @@
 #include<pthread.h>
 
 
+typedef struct client_info
+{
+ int socket_port;
+ int client_no;	 			
+}client_t;
+
+typedef enum Commands{USER,PASS,CWD,RETR,QUIT,BYE}command_t;
+
 #define IP_ADDR "127.0.0.1"
 #define PORT 8080
+#define MAX 5
 
 int sock_fd;
 char rec_buf[50];
 char buffer[16];
+char ack[200];
 
 void sigint_handler(int sig)
 {
@@ -27,12 +37,36 @@ void sigint_handler(int sig)
 }
 
 
-void* file_transfer(void* arg)
+void* command(void* arg)
 {
-	int new_socket = *((int*)arg);
-	recv(new_socket,rec_buf,50,0);
-	sleep(1);
-	strcpy(buffer,"Hey,Got you....");
+	int ret;
+	command_t input;
+	client_t new_client = *((client_t*)arg);
+	int new_socket = new_client.socket_port;
+	int client_no = new_client.client_no;
+	memset(ack,0,sizeof(ack));
+	sprintf(ack,"220 Himan Server connected to client: %d\n",client_no);
+	send(new_socket,ack,200,0);
+	do
+	{
+		memset(ack,0,sizeof(ack));
+		recv(new_socket,rec_buf,50,0);
+		case(input)
+		{
+			USER:
+				break;
+			PASS:
+				break;
+			CWD:
+				break;
+			RETR:
+				break;
+			QUIT:
+				break;
+		}
+		sleep(1);
+	}while(strcmp(rec_buf,"BYE") == 0);
+	//strcpy(buffer,"Hey,Got you....");
 	send(new_socket,buffer,16,0);
 	printf("Exiting socket\n");
 	close(new_socket);
@@ -43,7 +77,7 @@ void* file_transfer(void* arg)
 int main(void)
 {
 	int i = 0,pid;
-	int addr_len,connfd,ret;
+	int addr_len,ret;
 	struct sigaction sa;
 	struct sockaddr_in serv_addr;
 	addr_len = sizeof(serv_addr);
@@ -87,18 +121,20 @@ int main(void)
 	printf("socket successfully Binded.....\n");
 
 	//listen if client is ready to connect max 5 clients can connect
-	if(listen(sock_fd,5) != 0)
+	if(listen(sock_fd,MAX) != 0)
 	{
 		perror("Error: \n");
 		_exit(0);
 	}	
 	
 	printf("Server Listening....\n");
-	pthread_t cli[5];
+	pthread_t cli[MAX];
+	client_t info[MAX];
 	int j = -1;
+	
 	while(1)
 	{
-		
+		int connfd;	
 		//memset(&serv_addr, 0, sizeof(struct sockaddr_in));
 		//accept the client connection 
 		connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
@@ -108,17 +144,18 @@ int main(void)
 			_exit(0);
 		}
 		printf("Client Accepted.....\n");
-		
 		++j;
-		printf("Creating Thread[%d]: \n",j);
-
-		if(pthread_create(&cli[j],NULL,file_transfer,&connfd) != 0)
+		//printf("connfd = %d | j = %d\n",connfd,j);
+		//printf("Creating Thread[%d]: \n",j);
+		info[j].socket_port = connfd;
+		info[j].client_no = j;
+		if(pthread_create(&cli[j],NULL,command,&info[j]) != 0)
 			printf("Thread creation failed....\n");
 		
-		if(j > 5)
+		if(j > MAX)
 		{
 			j = -1;
-			while(j < 5)
+			while(j < MAX)
 			{
 				pthread_join(cli[j++],NULL);
 			}
