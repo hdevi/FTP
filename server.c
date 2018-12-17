@@ -15,7 +15,7 @@ typedef struct client_info
 {
  int socket_port;
  int client_no;
- int data_port;		 			
+ uint16_t data_port;		 			
 }client_t;
 
 typedef enum Commands{USER,PASS,CWD,RETR,QUIT,BYE}command_t;
@@ -42,15 +42,16 @@ void sigint_handler(int sig)
 
 void* command(void* arg)
 {
-	int ret,r;
+	int ret;
+	uint16_t random_port;
 	command_t input;
 	srand((unsigned)time(NULL));
-	r=rand();
-	printf("%d\n",r);
+	random_port = rand();
+	printf("%u\n",random_port);
 	client_t new_client = *((client_t*)arg);
 	int new_socket = new_client.socket_port;
 	int client_no = new_client.client_no;
-	new_client.data_port = r;
+	new_client.data_port = random_port;
 	memset(ack,0,sizeof(ack));
 	sprintf(ack,"220 Running client: %d connected to the Server, Data Port assigned(%d)\nLogin Himan Server: ",client_no,new_client.data_port);
 	send(new_socket,ack,200,0);
@@ -62,7 +63,7 @@ void* command(void* arg)
 		int len = strlen(rec_buf);
 		memset(str,0,sizeof(str));
 		memcpy(str,rec_buf,len-2);
-		printf("%s %d %lu\n",str,len-2,strlen(str));
+		//printf("%s %d %lu\n",str,len-2,strlen(str));
 		if(strcmp(str,"anonymous") == 0)
 		{
 			sprintf(ack,"331 USER logged in as Anonymous. Need Password(Password)\n");
@@ -72,22 +73,40 @@ void* command(void* arg)
 		{
 			sprintf(ack,"230 Anonymous successfully logged in\n");
 			send(new_socket,ack,200,0);
-		}
-		else if(strcmp(str,"CWD") == 0)
-		{
-			
-		}
-		else if(strcmp(str,"RETR") == 0)
-		{
-			
-		}
-		else if(strcmp(str,"QUIT") == 0)
-		{
-			
+			while(1)
+			{
+				send(new_socket,"cmd> ",6,0);
+				memset(ack,0,sizeof(ack));
+				memset(rec_buf,0,sizeof(rec_buf));
+				recv(new_socket,rec_buf,50,0);
+				int len = strlen(rec_buf);
+				memset(str,0,sizeof(str));
+				memcpy(str,rec_buf,len-2);
+				//printf("%s %d %lu\n",str,len-2,strlen(str));
+				if(strcmp(str,"CWD") == 0)
+				{
+					sprintf(ack,"Got You...\n");
+				}
+				else if(strcmp(str,"RETR") == 0)
+				{
+					sprintf(ack,"Searching.....\n");
+				}
+				else if(strcmp(str,"QUIT") == 0)
+				{
+					sprintf(ack,"Command mode Terminated...Type bye for exit\n");
+					send(new_socket,ack,200,0);
+					break;
+				}
+				else
+				{
+					sprintf(ack,"502 Command Noot implemented\n");
+				}
+				send(new_socket,ack,200,0);
+				
+			}
 		}
 		else
 		{
-			
 		}
 
 		sleep(1);
