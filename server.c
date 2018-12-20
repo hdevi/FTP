@@ -7,6 +7,7 @@
 #include<time.h>
 #include<fcntl.h>
 #include<sys/socket.h>
+#include<sys/wait.h>
 #include<error.h>
 #include<pthread.h>
 
@@ -40,6 +41,98 @@ void sigint_handler(int sig)
 }
 
 
+char* command_list(char* temp[])
+{
+	char *cmd,*temp1;
+	temp1 = &temp[0][0];
+	if(strcmp(temp1,"LIST") == 0)
+		cmd = "ls";
+
+	else if(strcmp(temp1,"PWD") == 0)
+		cmd = "pwd";
+
+	else if(strcmp(temp1,"DELE") == 0)
+		cmd = "rm";
+
+	else if(strcmp(temp1,"MKD") == 0)
+		cmd = "mkdir";
+
+	else if(strcmp(temp1,"RMD") == 0)
+		cmd = "rmdir";
+		
+	return cmd;
+}
+
+void shell(client_t *arg)
+{
+	
+	char str[512];
+	char *ptr, *args[32];
+	int i, err, ret, status;
+	client_t new_client = *((client_t*)arg);
+	int new_socket = new_client.socket_port;
+	int client_no = new_client.client_no;
+	//new_client.data_port = random_port;
+	memset(ack,0,sizeof(ack));
+
+	while(1)
+	{
+		send(new_socket,"cmd> ",6,0);
+		memset(ack,0,sizeof(ack));
+		memset(rec_buf,0,sizeof(rec_buf));
+		recv(new_socket,rec_buf,50,0);
+		int len = strlen(rec_buf);
+		memset(str,0,sizeof(str));
+		memcpy(str,rec_buf,len-2);
+
+		i=0;
+		ptr = strtok(str, " ");
+		args[i++] = ptr;
+		do
+		{
+			ptr = strtok(NULL, " ");
+			args[i++] = ptr;
+		}while(ptr!= NULL);
+
+		// internal commands
+		if(strcmp(args[0], "QUIT") == 0)
+			_exit(0);
+	
+		else if(strcmp(args[0], "CWD") == 0)
+			chdir(args[1]);
+	
+		// external commands
+		else 
+		{
+			char* temp[3];
+			char* retu;
+			temp[0] = args[0];
+
+			args[0] = command_list(temp);
+
+			ret = fork();
+			if(ret == 0)
+			{
+				dup2(new_socket,STDOUT_FILENO);
+				err = execvp(args[0], args);
+				if(err < 0)
+				{
+					perror("bad command");
+					_exit(1);
+				}
+			}
+			else
+			{
+				waitpid(-1, &status, 0);
+			}
+		}
+		
+		send(new_socket,ack,200,0);
+	}
+	
+}
+
+
 void* command(void* arg)
 {
 	int ret;
@@ -63,7 +156,6 @@ void* command(void* arg)
 		int len = strlen(rec_buf);
 		memset(str,0,sizeof(str));
 		memcpy(str,rec_buf,len-2);
-		//printf("%s %d %lu\n",str,len-2,strlen(str));
 		if(strcmp(str,"anonymous") == 0)
 		{
 			sprintf(ack,"331 USER logged in as Anonymous. Need Password(Password)\n");
@@ -73,40 +165,13 @@ void* command(void* arg)
 		{
 			sprintf(ack,"230 Anonymous successfully logged in\n");
 			send(new_socket,ack,200,0);
-			while(1)
-			{
-				send(new_socket,"cmd> ",6,0);
-				memset(ack,0,sizeof(ack));
-				memset(rec_buf,0,sizeof(rec_buf));
-				recv(new_socket,rec_buf,50,0);
-				int len = strlen(rec_buf);
-				memset(str,0,sizeof(str));
-				memcpy(str,rec_buf,len-2);
-				//printf("%s %d %lu\n",str,len-2,strlen(str));
-				if(strcmp(str,"CWD") == 0)
-				{
-					sprintf(ack,"Got You...\n");
-				}
-				else if(strcmp(str,"RETR") == 0)
-				{
-					sprintf(ack,"Searching.....\n");
-				}
-				else if(strcmp(str,"QUIT") == 0)
-				{
-					sprintf(ack,"Command mode Terminated...Type bye for exit\n");
-					send(new_socket,ack,200,0);
-					break;
-				}
-				else
-				{
-					sprintf(ack,"502 Command Noot implemented\n");
-				}
-				send(new_socket,ack,200,0);
-				
-			}
+			shell(&new_client);
+						
 		}
 		else
-		{
+		{	
+			sprintf(ack,"430 Invalid Login\n");
+			send(new_socket,ack,200,0);
 		}
 
 		sleep(1);
@@ -160,7 +225,7 @@ int main(void)
 	if(bind(sock_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr)) != 0)
 	{
 		perror("Error: \n");
-		exit(0);	
+		_exit(0);	
 	}
 	
 	printf("socket successfully Binded.....\n");
@@ -179,8 +244,8 @@ int main(void)
 	
 	while(1)
 	{
-		int connfd;	
-		//memset(&serv_addr, 0, sizeof(struct sockaddr_in));
+		int connfd;
+	
 		//accept the client connection 
 		connfd = accept(sock_fd,(struct sockaddr*)&serv_addr,(socklen_t *)&addr_len);
 		if(connfd < 0)
@@ -190,8 +255,6 @@ int main(void)
 		}
 		printf("Client Accepted.....\n");
 		++j;
-		//printf("connfd = %d | j = %d\n",connfd,j);
-		//printf("Creating Thread[%d]: \n",j);
 		info[j].socket_port = connfd;
 		info[j].client_no = j;
 		if(pthread_create(&cli[j],NULL,command,&info[j]) != 0)
@@ -207,21 +270,6 @@ int main(void)
 			j = -1;	
 		}
 		
-		/*pid = fork();
-		if(pid == 0)
-		{
-			int i = 0;
-			while(i < 10)
-			{
-				printf("%d\n",i);
-				i++;
-			}
-
-			//close socket connection
-			close(connfd);
-			printf("Socket closed....\n");
-			_exit(0);
-		}*/
 	
 	}
 	
